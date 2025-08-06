@@ -1,98 +1,118 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Amy - Web Assistant</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            background: #0b0f19;
-            color: white;
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-        }
-        #status {
-            margin-top: 20px;
-            font-size: 1.2em;
-            color: #00ffcc;
-        }
-        button {
-            background: #00ffcc;
-            border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            margin-top: 20px;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #00d9aa;
-        }
-    </style>
+  <title>Amy - Smart Voice Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      background: #0b0f19;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    h1 { font-size: 2em; }
+    #status { color: #00ffcc; margin-top: 20px; font-size: 1.2em; }
+  </style>
 </head>
 <body>
+  <h1>🧠 Amy - Always Listening...</h1>
+  <div id="status">Waiting for your command...</div>
 
-    <h1>🗣 Amy - Your Web Assistant</h1>
-    <p>Tap the button and start talking to Amy.</p>
+  <script>
+    const BACKEND_URL = "https://amy-backend-dkkm.onrender.com";
+    let recognition;
 
-    <button onclick="startListening()">🎤 Speak</button>
-    <div id="status">Waiting for your command...</div>
+    function speak(text) {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "en-GB";
+      utter.pitch = 1.2;
+      utter.rate = 1;
+      window.speechSynthesis.speak(utter);
+    }
 
-    <script>
-        function speak(text) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'en-GB'; // British accent
-            window.speechSynthesis.speak(utterance);
+    function startListening() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Your browser doesn't support Speech Recognition.");
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.continuous = false;
+
+      recognition.onstart = () => {
+        document.getElementById("status").innerText = "🎙 Listening...";
+      };
+
+      recognition.onresult = async (event) => {
+        const command = event.results[0][0].transcript.toLowerCase();
+        document.getElementById("status").innerText = "You said: " + command;
+        await processCommand(command);
+        recognition.stop(); // Manually stop before restarting
+      };
+
+      recognition.onend = () => {
+        // Automatically restart recognition
+        startListening();
+      };
+
+      recognition.onerror = (event) => {
+        document.getElementById("status").innerText = "Error: " + event.error;
+        setTimeout(startListening, 1000); // Retry after 1s
+      };
+
+      recognition.start();
+    }
+
+    async function processCommand(command) {
+      if (command.includes("hello")) {
+        speak("Hello sir, how can I assist you?");
+      } else if (command.includes("how are you")) {
+        speak("Fully functional and ready, sir.");
+      } else if (command.includes("search")) {
+        const query = command.replace("search", "").trim();
+        speak("Searching Google for " + query);
+        window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank");
+      } else if (command.includes("youtube")) {
+        const query = command.replace("youtube", "").trim();
+        speak("Opening YouTube for " + query);
+        window.open("https://www.youtube.com/results?search_query=" + encodeURIComponent(query), "_blank");
+      } else if (command.includes("note")) {
+        const note = command.replace("note", "").trim();
+        localStorage.setItem("amy_note", note);
+        speak("Got it. I’ve saved the note.");
+      } else if (command.includes("show note")) {
+        const note = localStorage.getItem("amy_note");
+        speak(note ? "Here's your note: " + note : "You haven't saved any notes.");
+      } else if (command.includes("battery")) {
+        navigator.getBattery().then(battery => {
+          speak("Battery level is " + Math.floor(battery.level * 100) + " percent.");
+        });
+      } else {
+        // Fallback to backend
+        try {
+          const res = await fetch(`${BACKEND_URL}/process`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ command })
+          });
+
+          const data = await res.json();
+          speak(data.reply || "I'm not sure how to respond to that.");
+        } catch {
+          speak("Sorry, my brain is offline. Backend is unreachable.");
         }
+      }
+    }
 
-        function startListening() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                alert("Sorry, your browser doesn't support speech recognition.");
-                return;
-            }
-
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'en-US';
-            recognition.start();
-
-            document.getElementById('status').innerText = "Listening... 🎙";
-
-            recognition.onresult = function(event) {
-                const command = event.results[0][0].transcript.toLowerCase();
-                document.getElementById('status').innerText = "You said: " + command;
-                processCommand(command);
-            };
-
-            recognition.onerror = function(event) {
-                document.getElementById('status').innerText = "Error: " + event.error;
-            };
-        }
-
-        function processCommand(command) {
-            fetch("https://amy-backend-dkkm.onrender.com/process", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ command: command })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.response) {
-                    speak(data.response);
-                    document.getElementById("status").innerText = "Amy: " + data.response;
-                } else {
-                    speak("I'm sorry sir, I didn't get that.");
-                    document.getElementById("status").innerText = "Amy didn't understand.";
-                }
-            })
-            .catch(error => {
-                speak("There was an error contacting my brain.");
-                document.getElementById("status").innerText = "Error: " + error;
-            });
-        }
-    </script>
-
+    // Start automatically
+    window.onload = () => {
+      speak("Amy is online and ready.");
+      startListening();
+    };
+  </script>
 </body>
 </html>
