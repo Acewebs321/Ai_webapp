@@ -41,7 +41,7 @@
     <script>
         function speak(text) {
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'en-GB';
+            utterance.lang = 'en-GB'; // British accent
             window.speechSynthesis.speak(utterance);
         }
 
@@ -61,7 +61,7 @@
             recognition.onresult = function(event) {
                 const command = event.results[0][0].transcript.toLowerCase();
                 document.getElementById('status').innerText = "You said: " + command;
-                sendCommandToBackend(command);
+                processCommand(command);
             };
 
             recognition.onerror = function(event) {
@@ -69,21 +69,27 @@
             };
         }
 
-        function sendCommandToBackend(command) {
-            fetch("https://amy-backend-dkkm.onrender.com/command", {
-                method: 'POST',
+        function processCommand(command) {
+            fetch("https://amy-backend-dkkm.onrender.com/process", {
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json'
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({ command: command })
             })
             .then(response => response.json())
             .then(data => {
-                speak(data.response);
+                if (data.response) {
+                    speak(data.response);
+                    document.getElementById("status").innerText = "Amy: " + data.response;
+                } else {
+                    speak("I'm sorry sir, I didn't get that.");
+                    document.getElementById("status").innerText = "Amy didn't understand.";
+                }
             })
             .catch(error => {
-                speak("Sorry, I couldn't reach the server.");
-                console.error(error);
+                speak("There was an error contacting my brain.");
+                document.getElementById("status").innerText = "Error: " + error;
             });
         }
     </script>
