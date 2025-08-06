@@ -33,7 +33,7 @@
 <body>
 
     <h1>🗣 Amy - Your Web Assistant</h1>
-    <p>Tap the button and start talking to Amy1.</p>
+    <p>Tap the button and start talking to Amy.</p>
 
     <button onclick="startListening()">🎤 Speak</button>
     <div id="status">Waiting for your command...</div>
@@ -41,7 +41,7 @@
     <script>
         function speak(text) {
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'en-GB'; // British accent
+            utterance.lang = 'en-GB';
             window.speechSynthesis.speak(utterance);
         }
 
@@ -61,7 +61,7 @@
             recognition.onresult = function(event) {
                 const command = event.results[0][0].transcript.toLowerCase();
                 document.getElementById('status').innerText = "You said: " + command;
-                processCommand(command);
+                sendCommandToBackend(command);
             };
 
             recognition.onerror = function(event) {
@@ -69,38 +69,22 @@
             };
         }
 
-        function processCommand(command) {
-            if (command.includes("hello") || command.includes("hi")) {
-                speak("Hello sir, how can I help you?");
-            }
-            else if (command.includes("how are you")) {
-                speak("I'm functioning optimally, sir.");
-            }
-            else if (command.includes("search")) {
-                let query = command.replace("search", "").trim();
-                if (query) {
-                    speak("Searching Google for " + query);
-                    window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank");
-                } else {
-                    speak("What should I search for, sir?");
-                }
-            }
-            else if (command.includes("youtube")) {
-                let query = command.replace("youtube", "").trim();
-                speak("Searching YouTube for " + query);
-                window.open("https://www.youtube.com/results?search_query=" + encodeURIComponent(query), "_blank");
-            }
-            else if (command.includes("joke")) {
-                let jokes = [
-                    "Why did the computer go to the doctor? Because it caught a virus.",
-                    "I told my computer I needed a break, and it froze.",
-                    "Why was the computer cold? It left its Windows open."
-                ];
-                speak(jokes[Math.floor(Math.random() * jokes.length)]);
-            }
-            else {
-                speak("I'm sorry sir, I don't know how to do that yet.");
-            }
+        function sendCommandToBackend(command) {
+            fetch("https://amy-backend-dkkm.onrender.com/command", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ command: command })
+            })
+            .then(response => response.json())
+            .then(data => {
+                speak(data.response);
+            })
+            .catch(error => {
+                speak("Sorry, I couldn't reach the server.");
+                console.error(error);
+            });
         }
     </script>
 
